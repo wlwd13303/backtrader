@@ -24,6 +24,7 @@ from __future__ import (absolute_import, division, print_function,
 # The modules below should/must define __all__ with the objects wishes
 # or prepend an "_" (underscore) to private classes/variables
 
+from .totalvalue import *
 from .annualreturn import *
 from .drawdown import *
 from .timereturn import *
@@ -36,6 +37,7 @@ from .transactions import *
 from .pyfolio import *
 from .returns import *
 from .vwr import *
+from . import *
 
 from .logreturnsrolling import *
 

@@ -84,6 +84,7 @@ from . import brokers as brokers
 from . import timer as timer
 
 from . import talib as talib
+from .zjy_plot import *
 
 # Load contributed indicators and studies
 import backtrader.indicators.contrib
