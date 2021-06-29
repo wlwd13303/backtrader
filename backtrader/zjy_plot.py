@@ -2,9 +2,7 @@
 from collections import OrderedDict
 import backtrader as bt
 import pandas as pd
-import dash_core_components as dcc                  
 import dash_html_components as html
-from jupyter_plotly_dash import JupyterDash        
 
 def out_result(cerebro):
     cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
@@ -69,7 +67,10 @@ def out_result(cerebro):
     performance_dict['worst_year']=round(worst_year*100,2)
     performance_dict['sqn_ratio']=round(sqn_ratio,2)
     performance_dict['vwr_ratio']=round(vwr_ratio,2)
-    performance_dict['sharpe_info']=round(sharpe_ratio,2)
+    try:
+        performance_dict['sharpe_info']=round(sharpe_ratio,2)
+    except:
+        performance_dict['sharpe_info'] = 0
     performance_dict['omega']=0
 
     trade_dict_1=OrderedDict()
@@ -218,71 +219,71 @@ def create_table(df, max_rows=18):
     )
     return table
 
-def plot_result(cerebro):
-    df00,df0,df1,df2,df3,df4=out_result(cerebro)
-    
-    app = JupyterDash('评价指标')
-    colors = dict(background = 'white', text = 'black')
-    strategy_name="量化策略"
-    app.layout = html.Div(
-        style = dict(backgroundColor = colors['background']),
-        children = [
-            
-            html.H1(
-                children='{}策略评估结果'.format(strategy_name),
-                style = dict(textAlign='center', color = colors['text'])),
-           
-            dcc.Graph(
-                id='账户价值',
-                figure = dict(
-                    data = [{'x': list(df0.index), 'y': list(df0.total_value),
-                             #'text':[int(i*1000)/10 for i in list(df3.year_rate)],
-                             'type': 'scatter', 'name': '账户价值',
-                            'textposition':"outside"}],
-                    layout = dict(
-                        title='账户价值',
-                        plot_bgcolor = colors['background'], 
-                        paper_bgcolor = colors['background'],
-                        font = dict(color = colors['text'],
-                       )
-                    )
-                )
-            ),
-            
-            dcc.Graph(
-                id='持仓市值',
-                figure = dict(
-                    data = [{'x': list(df4.index), 'y': list(df4.total_position_value),
-                             #'text':[int(i*1000)/10 for i in list(df3.year_rate)],
-                             'type': 'scatter', 'name': '持仓市值',
-                            'textposition':"outside"}],
-                    layout = dict(
-                        title='持仓市值',
-                        plot_bgcolor = colors['background'], 
-                        paper_bgcolor = colors['background'],
-                        font = dict(color = colors['text']),
-                    )
-                )
-            ),
-            dcc.Graph(
-                id='年化收益',
-                figure = dict(
-                    data = [{'x': list(df3.index), 'y': list(df3.year_rate),
-                             'text':[int(i*1000)/10 for i in list(df3.year_rate)],
-                             'type': 'bar', 'name': '年收益率',
-                            'textposition':"outside"}],
-                    layout = dict(
-                        title='年化收益率',
-                        plot_bgcolor = colors['background'], 
-                        paper_bgcolor = colors['background'],
-                        font = dict(color = colors['text']),
-                    )
-                )
-            ),
-            create_table(df00)
-                            
-            
-        ]
-    )
-
-    return app
+# def plot_result(cerebro):
+#     df00,df0,df1,df2,df3,df4=out_result(cerebro)
+#
+#     app = JupyterDash('评价指标')
+#     colors = dict(background = 'white', text = 'black')
+#     strategy_name="量化策略"
+#     app.layout = html.Div(
+#         style = dict(backgroundColor = colors['background']),
+#         children = [
+#
+#             html.H1(
+#                 children='{}策略评估结果'.format(strategy_name),
+#                 style = dict(textAlign='center', color = colors['text'])),
+#
+#             dcc.Graph(
+#                 id='账户价值',
+#                 figure = dict(
+#                     data = [{'x': list(df0.index), 'y': list(df0.total_value),
+#                              #'text':[int(i*1000)/10 for i in list(df3.year_rate)],
+#                              'type': 'scatter', 'name': '账户价值',
+#                             'textposition':"outside"}],
+#                     layout = dict(
+#                         title='账户价值',
+#                         plot_bgcolor = colors['background'],
+#                         paper_bgcolor = colors['background'],
+#                         font = dict(color = colors['text'],
+#                        )
+#                     )
+#                 )
+#             ),
+#
+#             dcc.Graph(
+#                 id='持仓市值',
+#                 figure = dict(
+#                     data = [{'x': list(df4.index), 'y': list(df4.total_position_value),
+#                              #'text':[int(i*1000)/10 for i in list(df3.year_rate)],
+#                              'type': 'scatter', 'name': '持仓市值',
+#                             'textposition':"outside"}],
+#                     layout = dict(
+#                         title='持仓市值',
+#                         plot_bgcolor = colors['background'],
+#                         paper_bgcolor = colors['background'],
+#                         font = dict(color = colors['text']),
+#                     )
+#                 )
+#             ),
+#             dcc.Graph(
+#                 id='年化收益',
+#                 figure = dict(
+#                     data = [{'x': list(df3.index), 'y': list(df3.year_rate),
+#                              'text':[int(i*1000)/10 for i in list(df3.year_rate)],
+#                              'type': 'bar', 'name': '年收益率',
+#                             'textposition':"outside"}],
+#                     layout = dict(
+#                         title='年化收益率',
+#                         plot_bgcolor = colors['background'],
+#                         paper_bgcolor = colors['background'],
+#                         font = dict(color = colors['text']),
+#                     )
+#                 )
+#             ),
+#             create_table(df00)
+#
+#
+#         ]
+#     )
+#
+#     return app

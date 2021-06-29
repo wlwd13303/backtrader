@@ -5,8 +5,7 @@ import backtrader as bt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from backtrader_plotting import Bokeh
-from backtrader_plotting.schemes import Tradimo
+from zvt.api import *
 
 plt.rcParams['font.sans-serif'] = ['SimSun']  # 用来正常显示中文标签
 plt.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
@@ -170,35 +169,35 @@ class stampDutyCommissionScheme(bt.CommInfoBase):
             return 0  # just in case for some reason the size is 0.
 
 
-# def get_index_data(start='2015-02-02', end='2015-05-31'):
-#     df = get_kdata(entity_id="index_sh_000001",
-#                    start_timestamp=start, end_timestamp=end)
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-#     df = df.rename(columns={"timestamp": "date",
-#                             })
-#     df.reset_index(drop=False, inplace=True)
-#     df.set_index('date', inplace=True)
-#     df.sort_index(inplace=True)
-#     df['openinterest'] = 0
-#     df = df[['open', 'high', 'low', 'close', 'volume', 'openinterest']]
-#     return df
+def get_index_data(start='2015-02-02', end='2015-05-31'):
+    df = get_kdata(entity_id="index_sh_000001",
+                   start_timestamp=start, end_timestamp=end)
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.rename(columns={"timestamp": "date",
+                            })
+    df.reset_index(drop=False, inplace=True)
+    df.set_index('date', inplace=True)
+    df.sort_index(inplace=True)
+    df['openinterest'] = 0
+    df = df[['open', 'high', 'low', 'close', 'volume', 'openinterest']]
+    return df
 
 
-# def get_data_back(code, start='2021-02-02', end='2021-02-25'):
-#     df = get_kdata(entity_id=china_stock_code_to_id(code),
-#                    start_timestamp=start, end_timestamp=end, adjust_type='hfq')
-#
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-#     df = df.rename(columns={"timestamp": "date",
-#                             })
-#
-#     df.reset_index(drop=False, inplace=True)
-#     # df['date'] = df['date'].apply(lambda x:x.strftime("%Y-%m-%d"))
-#     df.set_index('date', inplace=True)
-#     df.sort_index(inplace=True)
-#     df['openinterest'] = 0
-#     df = df[['open', 'high', 'low', 'close', 'volume', 'openinterest']]
-#     return df
+def get_data_back(code, start='2021-02-02', end='2021-02-25'):
+    df = get_kdata(entity_id=china_stock_code_to_id(code),
+                   start_timestamp=start, end_timestamp=end, adjust_type='hfq')
+
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.rename(columns={"timestamp": "date",
+                            })
+
+    df.reset_index(drop=False, inplace=True)
+    # df['date'] = df['date'].apply(lambda x:x.strftime("%Y-%m-%d"))
+    df.set_index('date', inplace=True)
+    df.sort_index(inplace=True)
+    df['openinterest'] = 0
+    df = df[['open', 'high', 'low', 'close', 'volume', 'openinterest']]
+    return df
 
 
 class MyStrategy(bt.Strategy):
@@ -206,6 +205,7 @@ class MyStrategy(bt.Strategy):
     """
     # 策略参数
     params = dict(
+        strategy_name ='成长价值一号',
         rebal_monthday=[1],  # 每月1日执行再平衡
         printlog=False,
         max_hold_num=10,
@@ -216,7 +216,7 @@ class MyStrategy(bt.Strategy):
                  sell_signal=pd.DataFrame(),
                  buy_signal=pd.DataFrame(),
                  timing_signal=pd.DataFrame()):
-        self.log_file = open('C:/Users/32771/Desktopposition_log.txt', 'w')  # 用于输出仓位信息
+        self.log_file = open(f'C:/Users/32771/Desktop/回测/三百六十度/{self.p.strategy_name}-position_log.txt', 'w')  # 用于输出仓位信息
         self.log_file_dataframe = pd.DataFrame()  # 用于输出仓位信息
 
         self.sell_signal = sell_signal
@@ -239,6 +239,9 @@ class MyStrategy(bt.Strategy):
                                                 '股份', '买入原因'
                                                 ])
         self.trade_plan.set_index(['证券代码', '交易市场', '交易档位'], inplace=True, drop=True)
+
+        # 交易原因
+        self.transaction_reason = pd.DataFrame()
         # 是否为调仓日
         self.warehouse_date = False
         # 定时器
@@ -258,7 +261,7 @@ class MyStrategy(bt.Strategy):
         if data._name.split('_')[-1] == '电子I' \
                 and (data.peg < 1 or data.ps_ttm_分位 < self.p.values_num or data.pb_分位 < self.p.values_num):
             trade_plan = True
-        elif data._name.split('_')[-1] in ['家用电器I','电气设备I'] \
+        elif data._name.split('_')[-1] in ['家用电器I', '电气设备I'] \
                 and (data.peg < 1 or data.pcf_分位 < self.p.values_num or data.ps_ttm_分位 < self.p.values_num):
             trade_plan = True
         elif data._name.split('_')[-1] == '食品饮料I' \
@@ -312,9 +315,11 @@ class MyStrategy(bt.Strategy):
                         # 满足估值就买剩下的仓位
                         if trade_plan:
                             buy_position = True
+                            self.trade_plan.loc[(data._name, 'XSHG', '买入点'), '买入原因'] = '估值'
                         # 不满足就判断金字塔条件
                         elif buy_price >= data.open[1]:
                             buy_position = True
+                            self.trade_plan.loc[(data._name, 'XSHG', '买入点'), '买入原因'] = '金字塔'
                         if buy_position:
                             # 按照次日开盘价计算下单量,下单量是100的整数倍
                             size = ((self.trade_plan.loc[(data._name, 'XSHG', '买入点'), '计划可用资金'] /
@@ -414,7 +419,9 @@ class MyStrategy(bt.Strategy):
              for i in set(self.lastRanks) & set(self.ranks) if
              self.broker.getvalue([i])])
         # 总资产 - 不清仓的市值 获得剩余现金进行仓位分配
-        self.p_value = (total_value - last_ranks_values) * self.timing_data / len(self.long_ranks)
+        self.p_value = (total_value * self.timing_data - last_ranks_values) / len(self.long_ranks)
+        if self.p_value < 0:
+            print('可分配资金小于0', self.p_value)
         # 下单
         for data in self.long_ranks:
             # 查询该股的交易计划，如果有，说明在上个周期没有执行，应该删除上次的计划
@@ -457,7 +464,8 @@ class MyStrategy(bt.Strategy):
 
     def stop(self):
         self.log_file.close()
-        self.log_file_dataframe.to_excel(f'C:/Users/32771/Desktop/{str(self.p.values_num)}-每日持仓.xlsx')
+        self.log_file_dataframe.to_excel(f'C:/Users/32771/Desktop/回测/三百六十度/{self.p.strategy_name}-每日持仓.xlsx')
+        self.transaction_reason.to_excel(f'C:/Users/32771/Desktop/回测/三百六十度/{self.p.strategy_name}-{str(self.p.values_num)}-买入成交记录.xlsx')
 
     def log(self, txt, dt=None, doprint=False):
         if self.params.printlog or doprint:
@@ -476,9 +484,30 @@ class MyStrategy(bt.Strategy):
                 self.log('买单执行,%s, %.2f, %i' % (order.data._name,
                                                 order.executed.price, order.executed.size))
                 trade_data = self.trade_plan[self.trade_plan.index.get_level_values('证券代码') == order.data._name]
+                log_date = self.data0.datetime.date(0).strftime("%Y%m%d")
                 if not trade_data.empty and trade_data.计划执行次数[0] >= 1:
+                    self.transaction_reason = self.transaction_reason.append(
+                        pd.DataFrame({
+                            '股票代码': order.data._name,
+                            '买入价格': order.executed.price,
+                            '买入数量': order.executed.size,
+                            '买入原因': self.trade_plan.loc[(order.data._name, 'XSHG', '买入点'), '买入原因'],
+                        },
+                            index=[log_date])
+                    )
+
                     # 买完应该删除计划
                     self.trade_plan = self.trade_plan.drop((order.data._name, 'XSHG'))
+                else:
+                    self.transaction_reason = self.transaction_reason.append(
+                        pd.DataFrame({
+                            '股票代码': order.data._name,
+                            '买入价格': order.executed.price,
+                            '买入数量': order.executed.size,
+                            '买入原因': '股票池入选',
+                        },
+                            index=[log_date])
+                    )
 
             elif order.issell():
                 self.log('卖单执行, %s, %.2f, %i' % (order.data._name,
@@ -499,19 +528,34 @@ def test_start():
         return codes[:6]
 
     import time
+    import os
     from datetime import date
-    back_date = ['20100101']
-    # back_date = ['20190101']
-    for ye in back_date:
-        strategy_name = f'{ye}10'
+    # back_date = ['20100101']
+    trade_data = StockTradeDay.query_data(start_timestamp='20210501',
+                                          end_timestamp='20210601').timestamp
+    back_date = [i + '01' for i in set(i.strftime("%Y%m") for i in trade_data)]
+    # back_date = ['20200101']
+    def file_name(file_dir):
+        for root, dirs, files in os.walk(file_dir):
+            return root, dirs, files
+
+    root_dir, sub_dirs, files = file_name('C:/Users/32771/Desktop/回测/三百六十度/图片')
+
+    for ye in ['20210501']:
+        # if ye in [i.split('-')[0] for i in files]:
+        if ye in files[0][:8]:
+            continue
+        strategy_name = f'{ye}'
         start = f'{ye}'
-        end = '20210516'
+        end = '20210616'
         res_df = []
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         code_dict = {}
         buy_signal = pd.read_csv("C:/Users/32771/Documents/dev data/buy_signal.csv")
         buy_signal['timestamp'] = pd.to_datetime(buy_signal['timestamp'])
+        buy_signal = buy_signal[buy_signal['timestamp'] >= pd.to_datetime(start) - np.timedelta64(1, "Y")]
+
         buy_signal['股票代码'] = buy_signal['股票代码'].apply(lambda x: str(x).zfill(6))
         for stock_data in buy_signal[['股票代码', 'timestamp', '股票名称', '股票池']].to_dict('records'):
             stock_n = stock_data['股票代码'] + '_' + stock_data['股票名称']
@@ -522,14 +566,15 @@ def test_start():
                     code_dict.update({stock_n: stock_data['timestamp']})
         buy_signal.set_index(['timestamp'], drop=True, inplace=True)
         code_dict.update({'000001_上证指数_指数': pd.to_datetime(start)})
-        for vlnum in [100, 80, 50, 60, 40, 20]:
+        # for vlnum in [100, 80, 50, 60, 40, 20]:
+        for vlnum in [50]:
             st1 = time.time()
             cerebro = bt.Cerebro(tradehistory=True)
             for name in sorted(code_dict):
                 # if i >= 10:
                 #     break
-                # data = save_csv(name)
-                data = pd.read_csv(f"C:/Users/32771/Documents/dev data/0610/datachoices_滚动/{name[:6]}.csv")
+                # data = save_csv(name,start,end)
+                data = pd.read_csv(f"C:/Users/32771/Documents/dev data/0617/datachoices/合并/{name[:6]}.csv")
                 data['date'] = pd.to_datetime(data['date'])
                 data.set_index(['date'], drop=True, inplace=True)
                 data = data[['open', 'high', 'low', 'close', 'volume',
@@ -573,28 +618,56 @@ def test_start():
             cerebro.broker.set_checksubmit(False)
 
             # 添加策略
-            cerebro.addstrategy(MyStrategy, values_num=vlnum, buy_signal=buy_signal, printlog=True)
+            cerebro.addstrategy(MyStrategy, strategy_name=strategy_name,values_num=vlnum, buy_signal=buy_signal, printlog=True)
             df00, df0, df1, df2, df3, df4, trade_list_df = bt.out_result(cerebro)
             # cerebro.run()
             # b=Bokeh(style='bar',tabs='multi',sched=Tradimo()) #传统白底，多页
             # cerebro.plot(b)
             df0[f'{vlnum}%分位低估'] = df0[f'total_value']
-            df0[[f'{vlnum}%分位低估']].to_excel(f'C:/Users/32771/Desktop/{strategy_name}-{vlnum}-估值表现.xlsx')
+            df0[[f'{vlnum}%分位低估']].to_excel(f'C:/Users/32771/Desktop/回测/三百六十度/{strategy_name}-{vlnum}-估值表现.xlsx')
             res_df.append(df0[[f'{vlnum}%分位低估']])
             trade_list_df.rename(columns=trade_col, inplace=True)
-            trade_list_df.to_excel(f'C:/Users/32771/Desktop/{strategy_name}-{vlnum}-交易详情.xlsx')
+            trade_list_df.to_excel(f'C:/Users/32771/Desktop/回测/三百六十度/{strategy_name}-{vlnum}-交易详情.xlsx')
+            df1.to_excel(f'C:/Users/32771/Desktop/回测/三百六十度/{strategy_name}-{vlnum}-GrossLeverage.xlsx')
+            # 绩效指标
+            # df00.绩效指标.replace({
+            #     'calmar_ratio':'卡玛比率',
+            #     'average_drawdown_len':'平均回撤长度',
+            #     'average_drawdown_rate':'平均回撤比率',
+            #     'average_drawdown_money':'平均回撤资金',
+            #     'max_drawdown_len':'最大回撤长度',
+            #     'max_drawdown_rate':'最大回撤比率',
+            #     'average_rate':'平均收益率',
+            #     'stddev_rate':'标准差',
+            #     'positive_year':'获利年份',
+            #     'negative_year':'亏损年份',
+            #     'nochange_year':'无变化年份',
+            #     'best_year':'最大年收益率',
+            #     'worst_year':'最差年收益率',
+            #     'sqn_ratio':'系统质量指数',
+            #     'vwr_ratio':'变异加权回报',
+            #     'sharpe_info':'夏普比率',
+            # })
+            df00.to_excel(f'C:/Users/32771/Desktop/回测/三百六十度/{strategy_name}-{vlnum}-GrossLeverage.xlsx')
             end1 = time.time()
-            print(vlnum,' ',(end1 - st1)/60,'分钟')
+            print(vlnum, ' ', (end1 - st1) / 60, '分钟')
             del df0, vlnum
 
-def save_csv(name):
-    data = pd.read_csv(f"C:/Users/32771/Documents/dev data/0604/行情/{name[:6]}.csv")
+
+def save_csv(name, start, end):
+    # data = pd.read_csv(f"C:/Users/32771/Documents/dev data/0604/行情/{name[:6]}.csv")
+    if name[:6] == '000001':
+        data = get_index_data(start, end)
+    else:
+        data = get_data_back(name[:6], start, end)
+    data['date'] = data.index
     data['date'] = pd.to_datetime(data['date'])
+    data.reset_index(drop=True, inplace=True)
     # 000022 - 估值, 没数据
     if name[:6] != '000001':
         try:
-            data_values = pd.read_excel(f"C:/Users/32771/Documents/dev data/0610/滚动/"
-                                        f"{name[:6]}-{name.split('_')[-1].replace('*', '')}-估值.xlsx")
+            data_values = pd.read_csv(f"C:/Users/32771/Documents/dev data/0617/datachoices/行业分类/"
+                                      f"{name[:6]}.csv")
             data_values['date'] = pd.to_datetime(data_values['date'])
             data_values['peg'] = data_values['PEG']
         except:
@@ -610,8 +683,9 @@ def save_csv(name):
     data = data[['date', 'open', 'high', 'low', 'close', 'volume',
                  'pe_ttm_分位', 'peg', 'pcf_分位', 'ps_ttm_分位', 'pb_分位',
                  'openinterest']]
-    data.to_csv(f'C:/Users/32771/Documents/dev data/0610/datachoices_滚动/{name[:6]}.csv')
+    data.to_csv(f'C:/Users/32771/Documents/dev data/0617/datachoices/合并/{name[:6]}.csv')
     data.set_index(['date'], drop=True, inplace=True)
+    print(name)
     return data
 
 
