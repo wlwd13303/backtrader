@@ -114,7 +114,7 @@ back_date = ['20050101']
 for ye in back_date:
     strategy_name = f'{ye}_被选次数2'
     start = f'{ye}'
-    end = '20210625'
+    end = '20210701'
     trade_data = StockTradeDay.query_data(start_timestamp=pd.to_datetime(start) - np.timedelta64(1, 'Y'),
                                           end_timestamp=pd.to_datetime(end)).timestamp
     trade_data = list(set(str(i.year) for i in trade_data))
@@ -147,7 +147,7 @@ list(set(buy_signal['股票代码'].tolist()))
 data = BlockStock.query_data(
     filters=[BlockStock.stock_code.in_(list(set(buy_signal['股票代码'].tolist()))), BlockStock.block_type == 'swl1'])
 start = '20050101'
-end = '20210624'
+end = '20210701'
 
 for index, df in data[['stock_code', 'name', 'stock_id']].iterrows():
     em_id = str(df.stock_id).split('_')
